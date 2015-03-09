@@ -21,18 +21,27 @@
  */
 typedef struct TrainingItem {
   char 	*fruitName;
-  float  h; /* Hue */
-  float	 s; /* Saturation */
-  float	 v; /* Value */
-  float  c; /* Compactness */
+  double  h; /* Hue */
+  double  s; /* Saturation */
+  double  v; /* Value */
+  double  c; /* Compactness */
   struct TrainingItem *p_next;
 } TrainingItem;
+
+/**
+ * Defines an element of posterior probability, and a pointer to the next.
+ */
+typedef struct Posteriors {
+	char 	*class;
+	double	posteriorP;
+	struct Posteriors *p_next;
+} Posteriors;
 
 /**
  * Adds new item to list of training data, returns pointer to new list element
  * as head of list. (i.e. FILO buffer)
  */
-TrainingItem* addItem(TrainingItem *p_head, char *fruitName, float h, float s, float v, float c) {
+TrainingItem* addTItem(TrainingItem *p_head, char *fruitName, double h, double s, double v, double c) {
   // printf("Adding item: %s\t%0.2f\t%0.2f\t%0.2f", fruitName, h, s , v);
   TrainingItem *p_new_item = malloc(sizeof(TrainingItem));
   p_new_item->p_next = p_head;			/* Set pointer to previous head */
@@ -45,11 +54,20 @@ TrainingItem* addItem(TrainingItem *p_head, char *fruitName, float h, float s, f
   return p_new_item;
 }
 
+Posteriors* addPosterior(Posteriors *p_head, char *class, double posteriorP) {
+  Posteriors *p_new_item = malloc( sizeof(Posteriors) );
+  p_new_item->p_next = p_head;	/* Set pointer to previous head */
+  p_new_item->class = class;    /* Set data pointers */
+  p_new_item->posteriorP = posteriorP;
+
+  return p_new_item;
+}
+
 /*
  * Traverses the TrainingData and prints off the attributes of each list item.
  * Useful for debugging and testing.
  */
-void printList(TrainingItem *p_head) {
+void printTList(TrainingItem *p_head) {
 
 	TrainingItem *p_current_item = p_head;
 	while (p_current_item) {    /* Loop while the current pointer is not NULL. */
@@ -70,10 +88,32 @@ void printList(TrainingItem *p_head) {
 	}
 }
 
+void printPList(Posteriors *p_head) {
+	Posteriors *p_current_item = p_head;
+		while (p_current_item) {    /* Loop while the current pointer is not NULL. */
+			if(p_current_item->class && p_current_item->posteriorP) {
+				printf("%s\t%0.200f\n", p_current_item->class, p_current_item->posteriorP);
+			}
+			/* Advance the current pointer to the next item in the list */
+			p_current_item = p_current_item->p_next;
+		}
+}
+
+int getPListLen(Posteriors *p_head) {
+
+	int count = 0;
+	Posteriors *p_current = p_head;
+	while(p_current) {
+		count++;
+		p_current = p_current->p_next;
+	}
+	return count;
+}
+
 /*
  * Free all of the TrainingItem elements, and the structure itself.
  */
-int freeList(TrainingItem *p_head)	{
+int freeTList(TrainingItem *p_head)	{
 
 	printf("Freeing Training Data\n: ");
 	TrainingItem *p_current_item = p_head;
@@ -98,7 +138,7 @@ int freeList(TrainingItem *p_head)	{
  * Reverses the order of the elements in the list with head at *p_head
  * FILO => FIFO, vice versa.
  */
-TrainingItem* reverseList(TrainingItem *p_head) {
+TrainingItem* reverseTList(TrainingItem *p_head) {
   TrainingItem *p_new_head = NULL;
   while (p_head) {
     TrainingItem *p_next = p_head->p_next;
@@ -107,6 +147,28 @@ TrainingItem* reverseList(TrainingItem *p_head) {
     p_head = p_next;
   }
   return p_new_head;
+}
+
+/**
+ * Iterate the list, return the name of the class which has the highest posterior probability.
+ * O(n)
+ */
+char * getMostProbableClass(Posteriors *p_head) {
+	double highestP = 0;
+	char * class;
+
+	Posteriors *p_current = p_head;
+	while(p_current) {
+		if(p_current->class && p_current->posteriorP) {
+			if(p_current->posteriorP > highestP) {
+				highestP = p_current->posteriorP;
+				class = p_current->class;
+			}
+		}
+		p_current = p_current->p_next;
+	}
+	printf("Fruit identified as: %s\n", class);
+	return class;
 }
 
 #endif /* LINKEDLIST_H_ */

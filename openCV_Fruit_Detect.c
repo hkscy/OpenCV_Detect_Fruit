@@ -50,11 +50,11 @@ IplImage *src,				/*Original image read from file path @argv[1] */
 CvScalar hsvAvg;
 
 void cvShowAndPause(CvArr *image); /*Show IplImage in window, wait on key press */
-int train(char *fileName, CvScalar hsvAvg, float compactness);		   /*Use the image to build training set */
+int train(char *fileName, CvScalar hsvAvg, double compactness);		   /*Use the image to build training set */
 
 int main(int argc, char* argv[]) {
 	puts("Hello OpenCV!"); /* prints Hello OpenCV! */
-	float compactness = 0.0;
+	double compactness = 0.0;
 
 	if (argc >= 2 && (src = cvLoadImage(argv[1], 1)) != 0) {
 
@@ -142,7 +142,7 @@ int main(int argc, char* argv[]) {
 			}
 		}
 		printf("Black pixels: %d, White pixels: %d\n", count_black, count_white);
-		float fruitArea = (float)count_white / (count_white + count_black);
+		double fruitArea = (double)count_white / (count_white + count_black);
 		printf("Fruit area: %0.2f%%\n", fruitArea * 100);
 
 		//Bitwise_and the HSV image with the threshold bitmap, should mask just the fruit
@@ -180,7 +180,7 @@ int main(int argc, char* argv[]) {
 			return train(argv[1], hsvAvg, compactness);
 		} else if( strcmp(argv[2], "i") == 0 ) {
 			printf("Identification mode specified!\n");
-			testBayes();
+			testBayes(hsvAvg, compactness);
 		} else {
 			printf("Unknown mode %s specified\n", argv[2]);
 		}
@@ -200,7 +200,7 @@ void cvShowAndPause(CvArr *image) {
 /*
 * Use the image to train the system
 */
-int train(char *fileName, CvScalar hsvAvg, float compactness) {
+int train(char *fileName, CvScalar hsvAvg, double compactness) {
 	FILE * testData;
 	char * writeBuff;
 	//char * fruitName;
@@ -228,9 +228,9 @@ int train(char *fileName, CvScalar hsvAvg, float compactness) {
 								   fileName,		// File name image loaded from (*)
 								   fruitName,		// User input fruit name
 								   // numFruit,
-								   hsvAvg.val[0], 	// H (does this need to be scaled back)
-								   hsvAvg.val[1], 	// S
-								   hsvAvg.val[2],	// V
+								   hsvAvg.val[HUE], 	// H (does this need to be scaled back)
+								   hsvAvg.val[SATURATION], 	// S
+								   hsvAvg.val[VALUE],	// V
 								   compactness);
 
 	writeBuff = malloc(strLen + 1);

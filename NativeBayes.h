@@ -10,6 +10,8 @@
 #ifndef NATIVEBAYES_H_
 #define NATIVEBAYES_H_
 
+#define PI 3.14159
+
 /**
  * Given the class of fruit, iterate the list of training data and
  * calculate the mean of the attribute selected.
@@ -18,9 +20,9 @@
  * 2: Value
  * 3: Compactness
  */
-float calcHSVC_Mean(TrainingItem * p_head, char *fruitName, uint8_t attr) {
-	float mean = 0.0;
-	int divisor = 0;
+double calcHSVC_Mean(TrainingItem * p_head, char *fruitName, uint8_t attr) {
+	double mean = 0.0;
+	double divisor = 0.0;
 	TrainingItem *p_current_item = p_head;
 	while (p_current_item) {    /* Loop while the current pointer is not NULL. */
 		if((strcmp(p_current_item->fruitName, fruitName) == 0) &&
@@ -46,6 +48,7 @@ float calcHSVC_Mean(TrainingItem * p_head, char *fruitName, uint8_t attr) {
 	if(divisor > 0.0) {
 		mean = mean/divisor;
 	}
+	//printf("mean: %f for %u\n", mean, attr);
 	return mean;
 }
 
@@ -62,12 +65,12 @@ float calcHSVC_Mean(TrainingItem * p_head, char *fruitName, uint8_t attr) {
  * 2: Value
  * 3: Compactness
  */
-float calcHSVC_SD(TrainingItem * p_head, char * fruitName, uint8_t attr) {
+double calcHSVC_SD(TrainingItem * p_head, char * fruitName, uint8_t attr) {
 
-	int divisor = 0;
-	float avg = calcHSVC_Mean(p_head, fruitName, attr);
-	float sumOfSqDiff = 0.0; /* Sum of squared differences (x-avg)^2 */
-	float sd = 0.0;
+	double divisor = 0.0;
+	double avg = calcHSVC_Mean(p_head, fruitName, attr);
+	double sumOfSqDiff = 0.0; /* Sum of squared differences (x-avg)^2 */
+	double sd = 0.0;
 
 	TrainingItem *p_current_item = p_head;
 	while (p_current_item) {    /* Loop while the current pointer is not NULL. */
@@ -94,12 +97,13 @@ float calcHSVC_SD(TrainingItem * p_head, char * fruitName, uint8_t attr) {
 	}
 
 	sd = sqrt( sumOfSqDiff/divisor );
+	//printf("sd: %f for %u\n", sd, attr);
 
 	return sd;
 }
 
 /**
- * P(Class_fruitName|h)
+ * p(C{fruitName}|attr=val)
  * Calculate the probability of a given attribute belonging to a given
  * class (fruitName).
  * 1/sqrt(2*pi*SD^2)*exp((x-mean)^2/(2*SD^2))
@@ -110,8 +114,41 @@ float calcHSVC_SD(TrainingItem * p_head, char * fruitName, uint8_t attr) {
  * 2: Value
  * 3: Compactness
  */
-float calcHSVC_PDF(TrainingItem * p_head, char * fruitName, float h) {
-	return 0.0;
+double calcHSVC_PDF(TrainingItem * p_head, char * fruitName, uint8_t attr, double val) {
+
+	double pdf = 0.0;
+	double mean = calcHSVC_Mean(p_head, fruitName, attr);
+	double sd = calcHSVC_SD(p_head, fruitName, attr);;
+	double a = (1/(sd*sqrt(2*CV_PI)));
+	double b = exp( ((-1)*(pow((val-mean),2)) / (2*pow(sd,2))) );
+
+	pdf = a * b;
+
+	return pdf;
 }
+
+/**
+ *	Calculates the posterior probability density for the specified class.
+ *	Equal prior probability is assumed to P(class) = 1/n
+ *
+ *	posterior(class) = prior(class)*p(h|class)*p(s|class)*p(v|class)*p(compactness|class)
+ */
+double calcPosterior(TrainingItem *tDataHead, char *class, CvScalar sampleHSV, double sampleC) {
+
+	double post = 0.0;
+	double pH = calcHSVC_PDF(tDataHead, class, HUE, sampleHSV.val[HUE]);
+	double pS = calcHSVC_PDF(tDataHead, class, SATURATION, sampleHSV.val[SATURATION]);
+	double pV = calcHSVC_PDF(tDataHead, class, VALUE, sampleHSV.val[VALUE]);
+	double pC = calcHSVC_PDF(tDataHead, class, COMPACTNESS, sampleC);
+	printf("P(hue|%s) %f, P(sat|%s) %f, P(val|%s) %f, P(c|%s) %f\n", class, pH,
+																	 class, pS,
+																	 class, pV,
+																     class, pC);
+	post = pH*pS*pV*pC;
+	printf("posterior(%s) = %0.200f\n", class, post);
+
+	return post;
+}
+
 
 #endif /*NATIVEBAYES_H_*/

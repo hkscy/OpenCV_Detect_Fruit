@@ -10,7 +10,8 @@
 #include "TrainingDataLinkedList.h"
 #include "NativeBayes.h"
 
-void testBayes() {
+
+void testBayes(CvScalar hsvVal, double compactness) {
 	/*	Build TrainingDataLinkedList using the following sample data.
 	 *
 	 *	fruit	H		S		V		Compactness
@@ -35,7 +36,7 @@ void testBayes() {
 
 	const int numData = 17;
 	char *fruitNames[numData];
-	float h[numData]; float s[numData]; float v[numData]; float c[numData];
+	double h[numData]; double s[numData]; double v[numData]; double c[numData];
 	fruitNames[0] = "banana";	  h[0] = 95.19;  s[0] = 177.48;  v[0] = 184.28;  c[0] = 0.22;
 	fruitNames[1] = "banana"; 	  h[1] = 94.81;  s[1] = 168.97;  v[1] = 172.53;	 c[1] = 0.22;
 	fruitNames[2] = "banana"; 	  h[2] = 95.54;  s[2] = 173.27;  v[2] = 174.66;  c[2] = 0.30;
@@ -52,38 +53,30 @@ void testBayes() {
 	fruitNames[13] = "granny";    h[13] = 85.33; s[13] = 204.23; v[13] = 128.71; c[13] = 0.85;
 	fruitNames[14] = "granny";    h[14] = 87.20; s[14] = 220.39; v[14] = 117.27; c[14] = 0.86;
 	fruitNames[15] = "granny";	  h[15] = 87.04; s[15] = 216.43; v[15] = 112.85; c[15] = 0.85;
-	fruitNames[16] = "granny";	  h[16] = 87.86; s[16] = 212.36; v[16] = 15.22;  c[16] = 0.88;
+	fruitNames[16] = "granny";	  h[16] = 87.86; s[16] = 212.36; v[16] = 115.22;  c[16] = 0.88;
 
 	int i;
 	TrainingItem *p_head = NULL; 	/* 'Initialise' empty list */
 	for (i=0; i<numData; i++) {
 		/* Build list of training data */
-	    p_head = addItem(p_head, fruitNames[i], h[i], s[i], v[i], c[i]);
+	    p_head = addTItem(p_head, fruitNames[i], h[i], s[i], v[i], c[i]);
 	}
-	printList(p_head);
-	float hMeanGranny = calcHSVC_Mean(p_head, "granny", HUE);
-	float sMeanGranny = calcHSVC_Mean(p_head, "granny", SATURATION);
-	float vMeanGranny = calcHSVC_Mean(p_head, "granny", VALUE);
-	float cMeanGranny = calcHSVC_Mean(p_head, "granny", COMPACTNESS);
+	printTList(p_head);
 
-	printf("\n");
-	printf("Mean hue for Granny smith apples: %0.2f\n", hMeanGranny);
-	printf("Mean saturation for Granny smith apples: %0.2f\n", sMeanGranny);
-	printf("Mean value for Granny smith apples: %0.2f\n", vMeanGranny);
-	printf("Mean compactness for Granny smith apples: %0.2f\n", cMeanGranny);
-	printf("\n");
+	double pGranny = calcPosterior(p_head, "granny", hsvVal, compactness);
+	double pBanana = calcPosterior(p_head, "banana", hsvVal, compactness);
+	double pOrange = calcPosterior(p_head, "orange", hsvVal, compactness);
 
-	float hSD = calcHSVC_SD(p_head, "granny", HUE);
-	float sSD = calcHSVC_SD(p_head, "granny", SATURATION);
-	float vSD = calcHSVC_SD(p_head, "granny", VALUE);
-	float cSD = calcHSVC_SD(p_head, "granny", COMPACTNESS);
+	Posteriors *post = NULL;
+	post = addPosterior(post, "granny", pGranny);
+	post = addPosterior(post, "banana", pBanana);
+	post = addPosterior(post, "orange", pOrange);
 
-	printf("Standard deviation of hue for Granny smith apples: %0.2f\n", hSD);
-	printf("Standard deviation of saturation for Granny smith apples: %0.2f\n", sSD);
-	printf("Standard deviation of value for Granny smith apples: %0.2f\n", vSD);
-	printf("Standard deviation of compactness for Granny smith apples: %0.2f\n", cSD); /*expect 0.04 */
-	printf("\n");
+	printPList(post);
 
-	freeList(p_head);
+	getMostProbableClass(post);
+	//printf("Fruit identified as: %s\n", idFruit);
+
+	freeTList(p_head);
 
 }
