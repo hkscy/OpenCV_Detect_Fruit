@@ -20,11 +20,11 @@
  * Defines one element of training data, and a pointer to the next.
  */
 typedef struct TrainingItem {
-  char 	*fruitName;
-  double  h; /* Hue */
-  double  s; /* Saturation */
-  double  v; /* Value */
-  double  c; /* Compactness */
+	char 	*fruitName;
+	double  h; /* Hue */
+	double  s; /* Saturation */
+	double  v; /* Value */
+	double  c; /* Compactness */
   struct TrainingItem *p_next;
 } TrainingItem;
 

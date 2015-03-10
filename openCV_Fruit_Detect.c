@@ -17,7 +17,7 @@ Description : Code that detects fruit at supermarket self-service checkouts.
 #include <opencv2/imgproc/imgproc_c.h>
 #include <opencv2/core/types_c.h>
 
-#include "NativeBayes.h"
+#include "NaiveBayes.h"
 #include "TrainingDataLinkedList.h"
 #include "TestClassification.h"
 

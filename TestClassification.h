@@ -7,8 +7,8 @@
  * Tests the functionality of NativeBayes.h with some static data
  */
 
+#include "NaiveBayes.h"
 #include "TrainingDataLinkedList.h"
-#include "NativeBayes.h"
 
 
 void testBayes(CvScalar hsvVal, double compactness) {
