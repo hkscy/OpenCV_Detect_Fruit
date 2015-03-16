@@ -19,6 +19,7 @@ Description : Code that detects fruit at supermarket self-service checkouts.
 
 #include "NaiveBayes.h"
 #include "TrainingDataLinkedList.h"
+#include "TrainingData.h"
 #include "TestClassification.h"
 
 #ifdef __linux__
@@ -39,13 +40,13 @@ Description : Code that detects fruit at supermarket self-service checkouts.
 // Constants
 static const char *WINDOW_NAME = "OpenCV Fruit Detection";
 
-IplImage *src,				/*Original image read from file path @argv[1] */
-		 *src_r,			/*Original image resized to fit on the screen */
-		 *src_hsv,			/*Image in HSV colour space */
-		 *fruitMask,	/*Binary (0 or 255) image result of HSV thresholding */
-		 *hsv_masked,
-		 *hsv_filtered,
-		 *src_contours,
+IplImage *src,				  /*Original image read from file path @argv[1] */
+		 *src_r,			  /*Original image resized to fit on the screen */
+		 *src_hsv,			  /*Image in HSV colour space */
+		 *fruitMask,		  /*Binary (0 or 255) image result of HSV thresholding */
+		 *smoothFruitMask,	  /*Smoothed, binary result of HSV thresholding */
+		 *contouredFruitMask, /*Contours of the smoothed, thesholded fruit image */
+		 *hsvMeasure,		  /*Measure HSV values by masking src_hsv with smoothFruitMask */
 		 *dst;
 CvScalar hsvAvg;
 
@@ -89,32 +90,29 @@ int main(int argc, char* argv[]) {
 		//cvSmooth(src, dst, neighbourhood size, rest not required);
 		//neighbourhood size depends on the size of outlier, choose by obverservation for now
 
-		hsv_filtered = cvCreateImage(cvGetSize(fruitMask), IPL_DEPTH_8U, 1);
-		cvSmooth(fruitMask, hsv_filtered, CV_MEDIAN, 21, 0, 0, 0);
+		smoothFruitMask = cvCreateImage(cvGetSize(fruitMask), IPL_DEPTH_8U, 1);
+		cvSmooth(fruitMask, smoothFruitMask, CV_MEDIAN, 21, 0, 0, 0);
 		//cvCopy(hsv_threshold, hsv_filtered, 0);
-		cvShowAndPause(hsv_filtered);
+		cvShowAndPause(smoothFruitMask);
 
 		//Find contours using freeman's chain code algorithm
 		//We only require the external contours thus any "holes" in our thresholded object
 
-		//Structure to store structures such as CvSeq
-		CvMemStorage* storage = cvCreateMemStorage(0);
-
-		//Structure to store contour points 
+		contouredFruitMask = cvCreateImage(cvGetSize(smoothFruitMask), IPL_DEPTH_8U, 1);
+		cvCopy(smoothFruitMask, contouredFruitMask, NULL);
+		CvMemStorage* storage = cvCreateMemStorage(0); //Structure to store structures such as CvSeq
 		CvSeq* contours = 0;
 
 		//Find contours in image, desirably, we would only have one distinct object after the thresholding and smoothing operations
 		//Only find external contours and store all contour points
-		int nc = cvFindContours(hsv_filtered, storage, &contours, sizeof(CvContour), CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE, cvPoint(0, 0));
+		int nc = cvFindContours(contouredFruitMask, storage, &contours, sizeof(CvContour), CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE, cvPoint(0, 0));
 		printf("Number of Contours: %d \n", nc);
 
 		//Find largest contour
 		//*THIS MIGHT BE NEEDED, DEPENDS HOW GOOD WE CAN THRESHOLD OUR IMAGES*
 
-		//Draw contours on image
-		src_contours = cvCreateImage(cvGetSize(hsv_filtered), IPL_DEPTH_8U, 1);
-		cvSet(src_contours, CV_RGB(255, 255, 255), 0);
-		cvDrawContours(hsv_filtered, contours, CV_RGB(255, 255, 255), CV_RGB(255, 255, 255), 1, 1, 8, cvPoint(0, 0));
+		/* Draw contours */
+		cvDrawContours(contouredFruitMask, contours, CV_RGB(255, 255, 255), CV_RGB(255, 255, 255), 1, 1, 8, cvPoint(0, 0));
 
 
 		//Calculate area and mean
@@ -126,7 +124,7 @@ int main(int argc, char* argv[]) {
 		printf("Area: %.2f\n", area);
 		printf("Compactness: %.2f\n", compactness);
 
-		cvShowAndPause(hsv_filtered);
+		cvShowAndPause(contouredFruitMask);
 
 		//Next task: Remove outliers (i.e. Noise Reduction -> Remove outliers om ImageJ.
 		//Radius: 25 works well, radius determines the area used for calculating the median.
@@ -145,26 +143,21 @@ int main(int argc, char* argv[]) {
 		double fruitArea = (double)count_white / (count_white + count_black);
 		printf("Fruit area: %0.2f%%\n", fruitArea * 100);
 
-		//Bitwise_and the HSV image with the threshold bitmap, should mask just the fruit
-		hsv_masked = cvCreateImage(cvGetSize(src_r), src_r->depth, src_r->nChannels);
-		//cvAnd(src_hsv, hsv_threshold, hsv_masked, NULL);
-		cvCopy(src_hsv, hsv_masked, fruitMask);
-		cvShowAndPause(hsv_masked);
+		/* Bitwise_and the HSV image with the smoothed binary mask */
+		hsvMeasure = cvCreateImage(cvGetSize(src_r), src_r->depth, src_r->nChannels);
+		cvCopy(src_hsv, hsvMeasure, smoothFruitMask);
+		cvShowAndPause(hsvMeasure);
 
-		hsvAvg = cvAvg(hsv_masked, fruitMask);
+		/* Take average HSV values from the smoothed mask area of the HSV image data */
+		hsvAvg = cvAvg(hsvMeasure, smoothFruitMask);
 		printf("Average values, H: %f S: %f V: %f\n", hsvAvg.val[0], hsvAvg.val[1], hsvAvg.val[2]);
-
-		/*Save these to a file for building test data */
-
-		/*Match to nearest neighbour for identifying fruit */
 
 		/* Tidy-up */
 		cvDestroyWindow(WINDOW_NAME);
 		cvReleaseImage(&src_r); 		/*Free source image memory */
 		cvReleaseImage(&src_hsv);	/*Free HSV image memory */
 		cvReleaseImage(&fruitMask); /*Free threshold image memory */
-		cvReleaseImage(&hsv_filtered); /*Free filtered image memory */
-		cvReleaseImage(&src_contours); /*Free contours image memory */
+		cvReleaseImage(&smoothFruitMask); /*Free filtered image memory */
 	}
 	else {
 		puts("Image not supplied, program terminated.\n");
@@ -180,7 +173,8 @@ int main(int argc, char* argv[]) {
 			return train(argv[1], hsvAvg, compactness);
 		} else if( strcmp(argv[2], "i") == 0 ) {
 			printf("Identification mode specified!\n");
-			testBayes(hsvAvg, compactness);
+			TrainingItem *tData = readTrainingData(TRAINING_DATA);
+			//testBayes(hsvAvg, compactness);
 		} else {
 			printf("Unknown mode %s specified\n", argv[2]);
 		}
