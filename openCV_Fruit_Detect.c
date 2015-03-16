@@ -34,7 +34,7 @@ Description : Code that detects fruit at supermarket self-service checkouts.
 // Defines
 #define SCREEN_H		768
 #define WINDOW_FRILLS	100
-#define BUFF			1024
+#define BUFF			512
 #define TRAINING_DATA	"trainingImages.csv"
 
 // Constants
@@ -109,7 +109,15 @@ int main(int argc, char* argv[]) {
 		printf("Number of Contours: %d \n", nc);
 
 		//Find largest contour
-		//*THIS MIGHT BE NEEDED, DEPENDS HOW GOOD WE CAN THRESHOLD OUR IMAGES*
+//		vector<vector<Point> > prunedContours;
+//
+//		for (size_t i = 0; i< contours.size(); i++)
+//		     {
+//		         if (contourArea(contours[i]) > minArea)
+//		         {
+//		           prunedContours.push_back(contours[i]);
+//		         }
+//		     }
 
 		/* Draw contours */
 		cvDrawContours(contouredFruitMask, contours, CV_RGB(255, 255, 255), CV_RGB(255, 255, 255), 1, 1, 8, cvPoint(0, 0));
@@ -173,8 +181,24 @@ int main(int argc, char* argv[]) {
 			return train(argv[1], hsvAvg, compactness);
 		} else if( strcmp(argv[2], "i") == 0 ) {
 			printf("Identification mode specified!\n");
+			char *classes[9] = {"braeburn apple",
+								"granny smith apple",
+								"gala apple",
+								"pink lady apple"
+								"banana",
+								"dragon fruit",
+								"orange",
+								"mandarin orange",
+								"mango"};
+			/*Get training data and calculate probabilities */
 			TrainingItem *tData = readTrainingData(TRAINING_DATA);
-			//testBayes(hsvAvg, compactness);
+			printTList(tData);
+			printf("\n");
+			Posteriors *pData = calcPosteriors(tData, classes, hsvAvg, compactness);
+			//printPList(pData);
+			getMostProbableClass(pData);
+
+			freeTList(tData);
 		} else {
 			printf("Unknown mode %s specified\n", argv[2]);
 		}

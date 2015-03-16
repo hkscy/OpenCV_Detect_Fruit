@@ -140,12 +140,31 @@ double calcPosterior(TrainingItem *tDataHead, char *class, CvScalar sampleHSV, d
 	double pS = calcHSVC_PDF(tDataHead, class, SATURATION, sampleHSV.val[SATURATION]);
 	double pV = calcHSVC_PDF(tDataHead, class, VALUE, sampleHSV.val[VALUE]);
 	double pC = calcHSVC_PDF(tDataHead, class, COMPACTNESS, sampleC);
-	printf("P(hue|%s) %f, P(sat|%s) %f, P(val|%s) %f, P(c|%s) %f\n", class, pH,
+	/*printf("P(hue|%s) %f, P(sat|%s) %f, P(val|%s) %f, P(c|%s) %f\n", class, pH,
 																	 class, pS,
 																	 class, pV,
-																     class, pC);
+																     class, pC); */
 	post = pH*pS*pV*pC;
-	printf("posterior(%s) = %0.200f\n", class, post);
+	printf("posterior(%s) = %0.80f\n", class, post);
+
+	return post;
+}
+
+/**
+ * Get the list of posterior probabilities from the TrainingData list
+ *
+ * *classes[] - Array of class names for which to calculate the posteriors
+ *  hsvSample - CvScalar containing the H, S and V values from the sample to be identified.
+ *  cSample   - Measure of compactness from the sample to be identified.
+ */
+Posteriors *calcPosteriors(TrainingItem *tData, char *classes[], CvScalar hsvSample, double cSample) {
+
+	Posteriors *post = NULL;
+	int class = 0;
+	for(class = 0; class < sizeof(classes); class++) {
+		double pProb = calcPosterior(tData, classes[class], hsvSample, cSample);
+		post = addPosterior(post, classes[class], pProb);
+	}
 
 	return post;
 }

@@ -167,7 +167,7 @@ char * getMostProbableClass(Posteriors *p_head) {
 		}
 		p_current = p_current->p_next;
 	}
-	printf("Fruit identified as: %s\n", class);
+	printf("\nFruit identified as: %s\n", class);
 	return class;
 }
 

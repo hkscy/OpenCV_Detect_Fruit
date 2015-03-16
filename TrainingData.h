@@ -25,6 +25,8 @@
  * fields for all the members of a TrainingItem.
  *
  * Returns a single linked list of training data
+ *
+ * WARNING: Memory is allocated for fileNames and classes.
  */
 TrainingItem *readTrainingData(char *fileName) {
 
@@ -41,7 +43,7 @@ TrainingItem *readTrainingData(char *fileName) {
 	/* Determine total size of training data & allocate memory for it. */
 	fseek(testData, 0, SEEK_END);
 	size_t bytesTotal = (size_t)(ftell( testData ));
-	printf("Training data file size: %u\n", bytesTotal);
+	printf("Training data file size: %lu\n", bytesTotal);
 	char *rBuff = malloc( bytesTotal );
 
 	/* Read training data into memory */
@@ -93,7 +95,6 @@ TrainingItem *readTrainingData(char *fileName) {
 	    data = p_line;
 	    p_line = strchr(data, '\n');
 	    free(fName);
-	    free(class);
 	}
 
 	/* Flush and close training data file, free buffers */
