@@ -95,55 +95,65 @@ int main(int argc, char* argv[]) {
 		//cvCopy(hsv_threshold, hsv_filtered, 0);
 		cvShowAndPause(smoothFruitMask);
 
-		//Find contours using freeman's chain code algorithm
-		//We only require the external contours thus any "holes" in our thresholded object
-
+		/* Now the noise has been removed (mostly), find the contours */
 		contouredFruitMask = cvCreateImage(cvGetSize(smoothFruitMask), IPL_DEPTH_8U, 1);
 		cvCopy(smoothFruitMask, contouredFruitMask, NULL);
-		CvMemStorage* storage = cvCreateMemStorage(0); //Structure to store structures such as CvSeq
+
+
+		CvMemStorage* storage = cvCreateMemStorage(0); //Structure to store structures such as contours.
+		/* Start contour scanning process */
+		CvContourScanner ccs = cvStartFindContours(contouredFruitMask,
+															  storage,
+													sizeof(CvContour),
+													 CV_RETR_EXTERNAL,
+												 CV_CHAIN_APPROX_NONE,
+												 	 	cvPoint(0, 0));
+
+		/* Remove contours which are too small */
 		CvSeq* contours = 0;
+		int nContours = 0, nRemContours = 0;
+		double largestContour = 0.0;
+		double area = 0.0;
+		while((contours = cvFindNextContour(ccs)) != NULL) {
+			double thisContour = cvContourPerimeter( contours );
+			printf("%f ", thisContour);
+			if( thisContour > largestContour ) {
+				largestContour = thisContour;
+				area = cvContourArea(contours, CV_WHOLE_SEQ, 0);
+			} else {
+				cvSubstituteContour( ccs, NULL );
+				nRemContours++;
+			}
+			nContours++;
 
-		//Find contours in image, desirably, we would only have one distinct object after the thresholding and smoothing operations
-		//Only find external contours and store all contour points
-		int nc = cvFindContours(contouredFruitMask, storage, &contours, sizeof(CvContour), CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE, cvPoint(0, 0));
-		printf("Number of Contours: %d \n", nc);
+		}
+		contours = cvEndFindContours( &ccs );
 
-		//Find largest contour
-//		vector<vector<Point> > prunedContours;
-//
-//		for (size_t i = 0; i< contours.size(); i++)
-//		     {
-//		         if (contourArea(contours[i]) > minArea)
-//		         {
-//		           prunedContours.push_back(contours[i]);
-//		         }
-//		     }
+		//nContours = cvFindContours(contouredFruitMask, storage, &contours, sizeof(CvContour), CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE, cvPoint(0, 0));
+		printf("Number of Contours: %d \n", nContours);
+		printf("%d contours removed.\n", nRemContours);
 
 		/* Draw contours */
 		cvDrawContours(contouredFruitMask, contours, CV_RGB(255, 255, 255), CV_RGB(255, 255, 255), 1, 1, 8, cvPoint(0, 0));
 
+		compactness = (4 * CV_PI * area) / ( powf(largestContour, 2) );
 
-		//Calculate area and mean
-		double perimeter = cvArcLength(contours, CV_WHOLE_SEQ, 0);
-		double area = cvContourArea(contours, CV_WHOLE_SEQ, 0);
-		compactness = (4 * CV_PI * area) / ( powf(perimeter, 2) );
-
-		printf("Perimeter: %.2f\n", perimeter);
+		printf("Perimeter: %.2f\n", largestContour);
 		printf("Area: %.2f\n", area);
 		printf("Compactness: %.2f\n", compactness);
 
 		cvShowAndPause(contouredFruitMask);
 
-		//Next task: Remove outliers (i.e. Noise Reduction -> Remove outliers om ImageJ.
+		//Next task: Remove outliers (i.e. Noise Reduction -> Remove outliers in ImageJ.
 		//Radius: 25 works well, radius determines the area used for calculating the median.
 		int row, col, count_black, count_white;
 		count_black = 0; count_white = 0;
 		uchar pix_value;
-		for (row = 0; row < fruitMask->height; row++)
+		for (row = 0; row < smoothFruitMask->height; row++)
 		{
-			for (col = 0; col < fruitMask->width; col++)
+			for (col = 0; col < smoothFruitMask->width; col++)
 			{
-				pix_value = CV_IMAGE_ELEM(fruitMask, uchar, row, col);
+				pix_value = CV_IMAGE_ELEM(smoothFruitMask, uchar, row, col);
 				pix_value == 0 ? count_black++ : count_white++;
 			}
 		}
@@ -163,8 +173,8 @@ int main(int argc, char* argv[]) {
 		/* Tidy-up */
 		cvDestroyWindow(WINDOW_NAME);
 		cvReleaseImage(&src_r); 		/*Free source image memory */
-		cvReleaseImage(&src_hsv);	/*Free HSV image memory */
-		cvReleaseImage(&fruitMask); /*Free threshold image memory */
+		cvReleaseImage(&src_hsv);		/*Free HSV image memory */
+		cvReleaseImage(&fruitMask); 	/*Free threshold image memory */
 		cvReleaseImage(&smoothFruitMask); /*Free filtered image memory */
 	}
 	else {
@@ -184,7 +194,7 @@ int main(int argc, char* argv[]) {
 			char *classes[9] = {"braeburn apple",
 								"granny smith apple",
 								"gala apple",
-								"pink lady apple"
+								"pink lady apple",
 								"banana",
 								"dragon fruit",
 								"orange",

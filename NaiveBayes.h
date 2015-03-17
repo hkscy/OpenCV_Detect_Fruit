@@ -161,7 +161,7 @@ Posteriors *calcPosteriors(TrainingItem *tData, char *classes[], CvScalar hsvSam
 
 	Posteriors *post = NULL;
 	int class = 0;
-	for(class = 0; class < sizeof(classes); class++) {
+	for(class = 0; class <= sizeof(classes); class++) {
 		double pProb = calcPosterior(tData, classes[class], hsvSample, cSample);
 		post = addPosterior(post, classes[class], pProb);
 	}
