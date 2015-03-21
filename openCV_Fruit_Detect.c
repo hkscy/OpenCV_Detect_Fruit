@@ -30,6 +30,14 @@ Description : Code that detects fruit at supermarket self-service checkouts.
 	#error "Unsupported compile platform"
 #endif
 
+typedef struct Box{
+	double mean;
+	double std_dev;
+	double lacunarity;
+
+	struct Box *p_next;
+} Box;
+
 
 // Defines
 #define SCREEN_H		768
@@ -47,15 +55,23 @@ IplImage *src,				  /*Original image read from file path @argv[1] */
 		 *smoothFruitMask,	  /*Smoothed, binary result of HSV thresholding */
 		 *contouredFruitMask, /*Contours of the smoothed, thesholded fruit image */
 		 *hsvMeasure,		  /*Measure HSV values by masking src_hsv with smoothFruitMask */
+		 *src_cropped,
 		 *dst;
 CvScalar hsvAvg;
 
+CvCapture *liveImg;
+
 void cvShowAndPause(CvArr *image); /*Show IplImage in window, wait on key press */
-int train(char *fileName, CvScalar hsvAvg, double compactness);		   /*Use the image to build training set */
+int train(char *fileName, CvScalar hsvAvg, double compactness, double texture);		   /*Use the image to build training set */
+
+IplImage* cropSrc(IplImage* src, CvRect rect);
+double calcLacunarity(IplImage* cropped_cnv);
+Box* add_item(Box *p_head, double mean, double std_dev, double lacunarity);
 
 int main(int argc, char* argv[]) {
 	puts("Hello OpenCV!"); /* prints Hello OpenCV! */
 	double compactness = 0.0;
+
 
 	if (argc >= 2 && (src = cvLoadImage(argv[1], 1)) != 0) {
 
@@ -83,7 +99,8 @@ int main(int argc, char* argv[]) {
 		//CV_RGB(r,g,b) returns cvScalar(b,g,r,0)
 		//HSV for apples from ImageJ: 15-37, 147-255, 93-255
 		//MASSIVE IMPORTANT POINT: OpenCV has Hue values 0-179 rather than 0-255 (i.e. 180 degrees)
-		cvInRangeS(src_hsv, cvScalar(7, 147, 93, 0), cvScalar(179, 255, 255, 0), fruitMask);
+		//cvInRangeS(src_hsv, cvScalar(7, 147, 93, 0), cvScalar(179, 255, 255, 0), fruitMask);
+		cvInRangeS(src_hsv, cvScalar(18, 127, 93, 0), cvScalar(162, 242, 255, 0), fruitMask);
 		cvShowAndPause(fruitMask);
 
 		//Perform median filter to remove outliers and fill holes
@@ -144,6 +161,27 @@ int main(int argc, char* argv[]) {
 
 		cvShowAndPause(contouredFruitMask);
 
+		/*---------------------------- */
+		//Crop an area of the fruit. This is done by creating a bounding box around the contour of the fruit and then editing
+		//its points to select a smaller area.
+
+		//Create a bounding box around fruit contour
+		CvRect boundingBox = cvBoundingRect(contours, 1);
+
+		//Edit rectangle points to make a smaller rectangle
+		boundingBox = cvRect(boundingBox.x + 30, boundingBox.y + 15, boundingBox.width - 60 , boundingBox.height - 30);
+
+		cvRectangle(smoothFruitMask, cvPoint(boundingBox.x, boundingBox.y), cvPoint(boundingBox.x + boundingBox.width, boundingBox.y + boundingBox.height), cvScalar(128, 128, 128, 0), 1, 4, 0); //show bounding box on fruit
+		cvShowAndPause(smoothFruitMask);
+		//CvPoint centre = cvPoint(boundingBox.x + (boundingBox.width / 2), boundingBox.y + (boundingBox.height / 2)); //centre point of bounding box + contour
+
+		//This is a function which crops the rectangular area and converts the image to greyscale
+		src_cropped = cropSrc(src_r, boundingBox);
+
+		//Calculate lacunarity of region
+		double lacunarity = calcLacunarity(src_cropped);
+		/*---------------------------- */
+
 		//Next task: Remove outliers (i.e. Noise Reduction -> Remove outliers in ImageJ.
 		//Radius: 25 works well, radius determines the area used for calculating the median.
 		int row, col, count_black, count_white;
@@ -186,10 +224,12 @@ int main(int argc, char* argv[]) {
 	 * If argv[2] is set, it's specifying whether to train or identify using the input image.
 	 */
 	if( argv[2] != NULL ) {
-		if ( (strcmp(argv[2], "t") == 0) ) {
+		if ( (strcmp(argv[2], "t") == 0) ) {	/* Training mode */
 			printf("Training mode specified!\n");
-			return train(argv[1], hsvAvg, compactness);
-		} else if( strcmp(argv[2], "i") == 0 ) {
+			double texture = 1.0;
+			return train(argv[1], hsvAvg, compactness, texture);
+
+		} else if( strcmp(argv[2], "i") == 0 ) { /* Identification mode */
 			printf("Identification mode specified!\n");
 			char *classes[9] = {"braeburn apple",
 								"granny smith apple",
@@ -202,9 +242,10 @@ int main(int argc, char* argv[]) {
 								"mango"};
 			/*Get training data and calculate probabilities */
 			TrainingItem *tData = readTrainingData(TRAINING_DATA);
+			double texture = 1.0;
 			printTList(tData);
 			printf("\n");
-			Posteriors *pData = calcPosteriors(tData, classes, hsvAvg, compactness);
+			Posteriors *pData = calcPosteriors(tData, classes, hsvAvg, compactness, texture);
 			//printPList(pData);
 			getMostProbableClass(pData);
 
@@ -222,13 +263,13 @@ int main(int argc, char* argv[]) {
 void cvShowAndPause(CvArr *image) {
 	cvNamedWindow(WINDOW_NAME, 1);
 	cvShowImage(WINDOW_NAME, image);
-	cvWaitKey(0);
+	cvWaitKey(200);
 }
 
 /*
 * Use the image to train the system
 */
-int train(char *fileName, CvScalar hsvAvg, double compactness) {
+int train(char *fileName, CvScalar hsvAvg, double compactness, double texture) {
 	FILE * testData;
 	char * writeBuff;
 	//char * fruitName;
@@ -252,24 +293,26 @@ int train(char *fileName, CvScalar hsvAvg, double compactness) {
 	//char * numFruit = malloc( BUFF );
 	//gets(numFruit);
 
-	int strLen = snprintf(NULL, 0, "%s\t%s\t%0.2f\t%0.2f\t%0.2f\t%0.2f\n",
+	int strLen = snprintf(NULL, 0, "%s\t%s\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\n",
 								   fileName,		// File name image loaded from (*)
 								   fruitName,		// User input fruit name
 								   // numFruit,
 								   hsvAvg.val[HUE], 	// H (does this need to be scaled back)
 								   hsvAvg.val[SATURATION], 	// S
 								   hsvAvg.val[VALUE],	// V
-								   compactness);
+								   compactness,
+								   texture);
 
 	writeBuff = malloc(strLen + 1);
-	snprintf(writeBuff, BUFF, "%s\t%s\t%0.2f\t%0.2f\t%0.2f\t%0.2f\n",
+	snprintf(writeBuff, BUFF, "%s\t%s\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\n",
 			   	   	   	   	   fileName,		// File name image loaded from (*)
 							   fruitName,		// User input fruit name
 							   // numFruit,
 							   hsvAvg.val[0], 	// H (does this need to be scaled back)
 							   hsvAvg.val[1], 	// S
 							   hsvAvg.val[2],	// V
-							   compactness);
+							   compactness,
+							   texture);
 	fwrite(writeBuff, strLen, 1, testData);
 
 	fclose(testData);
@@ -277,4 +320,161 @@ int train(char *fileName, CvScalar hsvAvg, double compactness) {
 	free(fruitName);
 	// free(numFruit);
 	return EXIT_SUCCESS;
+}
+
+/*
+ * Crop src to calculate texture
+ */
+IplImage* cropSrc(IplImage* src, CvRect rect)
+{
+	//Create storage for an image of the size of the ROI rectangle
+	IplImage* cropped = cvCreateImage(cvSize(rect.width, rect.height), src->depth, src->nChannels);
+
+	//Set the region of interest in src image as rect
+	cvSetImageROI(src, rect);
+
+	//Copy the ROI image to the cropped image container
+	cvCopy(src, cropped, NULL);
+
+	//Reset the ROI of src to default
+	cvResetImageROI(src);
+
+	cvShowAndPause(cropped);
+
+	//Create  storage for the colour converted image
+	IplImage* cropped_cnv = cvCreateImage(cvGetSize(cropped), IPL_DEPTH_8U, 1);
+
+	//Convert from RGB to GREYSCALE
+	cvCvtColor(cropped, cropped_cnv, CV_RGB2GRAY);
+
+	printf("Cropped rows, cols: %d, %d\n", cropped->height, cropped->width);
+
+	cvShowAndPause(cropped_cnv);
+
+	return cropped_cnv;
+}
+
+
+/*
+* Calculate lacunarity measure of texture.
+*/
+double calcLacunarity(IplImage* cropped_cnv)
+{
+
+	// The empty list is represented by a pointer to NULL.
+	Box *p_head = NULL;
+
+	printf("rows: %d, cols: %d\n", cropped_cnv->height, cropped_cnv->width); //Print size of cropped image
+
+	int boxSize = 30; //This is the length of the side of the box
+
+	CvPoint box = cvPoint(0, 0); //
+	CvRect roi;
+
+	IplImage* temp = cvCreateImage(cvSize(boxSize, boxSize), cropped_cnv->depth, cropped_cnv->nChannels);
+
+	int iteration_y = (cropped_cnv->height / boxSize);//number of boxes that could fit in the y direction
+	int iteration_x = (cropped_cnv->width / boxSize);//number of boxes that could fit in the x direction
+
+	int noBoxes = iteration_y * iteration_x;//number of boxes that could fit in the cropped image
+
+	printf("iteration: %d\n", iteration_y);
+	printf("iteration: %d\n", iteration_x);
+
+	double value; //stores the values needed to calculate the mean and variance. NEED TO BE ARRAY
+	double mean_; //stores the mean value of a box
+	double variance_; //stores the variance of a box
+	double std_dev_; //stores the standard deviation of a box
+	double lacunarity_ = 0.0;
+
+	for (int y = 0; y < iteration_y * boxSize; y = y + boxSize)
+	{
+		for (int x = 0; x < iteration_x * boxSize; x = x + boxSize)
+		{
+			value = 0;
+			mean_ = 0.0;
+			variance_ = 0.0;
+			std_dev_ = 0.0;
+
+			//box = cvPoint(x, y);
+
+			/* THIS WILL SHOW DRAW THE RECTANGLES TO SHOW THE BOXES LAID OVER THE IMAGE
+			cvRectangle(cropped_cnv, box, cvPoint(x + boxSize, y + boxSize), cvScalar(255, 255, 255, 0), 1, 4, 0);
+			cvShowAndPause(cropped_cnv);*/
+
+			cvSetImageROI(cropped_cnv, cvRect(x, y, boxSize, boxSize)); //set ROI to particular rectangle
+			cvCopy(cropped_cnv, temp, NULL); //copy this to a temporary storage
+			cvResetImageROI(cropped_cnv); //reset ROI
+			cvShowAndPause(temp);
+
+			//Calculate the mean value of pixels in the ROI
+			for (int row = 0; row < temp->height;row++)
+			{
+				for (int col = 0; col < temp->width; col++)
+				{
+					value = value + CV_IMAGE_ELEM(temp, uchar, row, col);
+					//printf("value: %f\n", value);
+				}
+			}
+
+			mean_ = value / (temp->height*temp->width);
+			printf("mean: %f\n", mean_);
+			value = 0.0;
+
+			//Calculate the variance of pixels in the ROI
+			for (int row = 0; row < temp->height; row++)
+			{
+				for (int col = 0; col < temp->width; col++)
+				{
+					value = value + powf((CV_IMAGE_ELEM(temp, uchar, row, col) - mean_), 2) ;
+					//printf("value: %f\n", value);
+				}
+			}
+
+			variance_ = value / (temp->height*temp->width);
+			printf("variance: %f\n", variance_);
+
+			//Calculate standar deviation
+			std_dev_ = sqrt(variance_);
+			printf("std_dev: %f\n", std_dev_);
+
+			lacunarity_ = powf((std_dev_ / mean_), 2);
+			printf("lacunarity: %f\n", lacunarity_);
+			//cvShowAndPause(cropped_cnv);
+
+			// Add s at the beginning of the list
+			p_head = add_item(p_head, mean_, std_dev_, lacunarity_);
+
+		}
+	}
+
+	printf("The list is:\n");
+	Box *p_current_item = p_head;
+	while (p_current_item) {    // Loop while the current pointer is not NULL
+		//printf("test");
+		if (p_current_item->mean && p_current_item->std_dev && p_current_item->lacunarity) {
+			printf("mean: %f\nstd_dev: %f\nlacunarity: %f\n", p_current_item->mean, p_current_item->std_dev, p_current_item->lacunarity);
+		}
+		else {
+			printf("No data\n");
+		}
+		// Advance the current pointer to the next item in the list.
+		p_current_item = p_current_item->p_next;
+	}
+
+	printf("end\n");
+	return 0;
+}
+
+
+Box* add_item(Box *p_head, double mean, double std_dev, double lacunarity){
+
+	Box* p_new_item = malloc(sizeof(Box));
+
+	p_new_item -> p_next = p_head;
+	p_new_item -> mean = mean;
+	p_new_item -> std_dev = std_dev;
+	p_new_item -> lacunarity = lacunarity;
+
+	return p_new_item;
 }

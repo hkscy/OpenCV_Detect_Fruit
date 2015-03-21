@@ -20,7 +20,8 @@
  * 2: Value
  * 3: Compactness
  */
-double calcHSVC_Mean(TrainingItem * p_head, char *fruitName, uint8_t attr) {
+double calcHSVCT_Mean(TrainingItem * p_head, char *fruitName, uint8_t attr) {
+
 	double mean = 0.0;
 	double divisor = 0.0;
 	TrainingItem *p_current_item = p_head;
@@ -28,7 +29,8 @@ double calcHSVC_Mean(TrainingItem * p_head, char *fruitName, uint8_t attr) {
 		if((strcmp(p_current_item->fruitName, fruitName) == 0) &&
 				   p_current_item->h &&	/*If valid item */
 				   p_current_item->s &&
-				   p_current_item->v) {
+				   p_current_item->v &&
+				   p_current_item->t) {
 
 			if(HUE == attr) {
 				mean += p_current_item->h;
@@ -38,6 +40,8 @@ double calcHSVC_Mean(TrainingItem * p_head, char *fruitName, uint8_t attr) {
 				mean += p_current_item->v;
 			} else if(COMPACTNESS == attr) {
 				mean += p_current_item->c;
+			} else if(TEXTURE == attr) {
+				mean += p_current_item->t;
 			}
 			/* Add error checking here on attribute type */
 			divisor++;
@@ -48,7 +52,7 @@ double calcHSVC_Mean(TrainingItem * p_head, char *fruitName, uint8_t attr) {
 	if(divisor > 0.0) {
 		mean = mean/divisor;
 	}
-	//printf("mean: %f for %u\n", mean, attr);
+	printf("calcHSVCT_Mean(..., fruitName = %s, attr = %u) = %f\n", fruitName, attr, mean);
 	return mean;
 }
 
@@ -65,10 +69,10 @@ double calcHSVC_Mean(TrainingItem * p_head, char *fruitName, uint8_t attr) {
  * 2: Value
  * 3: Compactness
  */
-double calcHSVC_SD(TrainingItem * p_head, char * fruitName, uint8_t attr) {
+double calcHSVCT_SD(TrainingItem * p_head, char * fruitName, uint8_t attr) {
 
 	double divisor = 0.0;
-	double avg = calcHSVC_Mean(p_head, fruitName, attr);
+	double avg = calcHSVCT_Mean(p_head, fruitName, attr);
 	double sumOfSqDiff = 0.0; /* Sum of squared differences (x-avg)^2 */
 	double sd = 0.0;
 
@@ -78,17 +82,20 @@ double calcHSVC_SD(TrainingItem * p_head, char * fruitName, uint8_t attr) {
 				   p_current_item->h &&	/*If valid item */
 				   p_current_item->s &&
 				   p_current_item->v &&
-				   p_current_item->c) {
+				   p_current_item->c &&
+				   p_current_item->t) {
 
 			/* Calculate difference between average and this value, squared */
 			if(HUE == attr) {
-				sumOfSqDiff +=  pow(p_current_item->h-avg, 2);
+				sumOfSqDiff += pow(p_current_item->h-avg, 2);
 			} else if(SATURATION == attr) {
-				sumOfSqDiff +=  pow(p_current_item->s-avg, 2);
+				sumOfSqDiff += pow(p_current_item->s-avg, 2);
 			} else if(VALUE == attr) {
-				sumOfSqDiff +=  pow(p_current_item->v-avg, 2);
+				sumOfSqDiff += pow(p_current_item->v-avg, 2);
 			} else if(COMPACTNESS == attr) {
-				sumOfSqDiff +=  pow(p_current_item->c-avg, 2);
+				sumOfSqDiff += pow(p_current_item->c-avg, 2);
+			} else if(TEXTURE == attr) {
+				sumOfSqDiff += pow(p_current_item->t-avg, 2);
 			}
 			divisor++;
 		}
@@ -97,8 +104,8 @@ double calcHSVC_SD(TrainingItem * p_head, char * fruitName, uint8_t attr) {
 	}
 
 	sd = sqrt( sumOfSqDiff/divisor );
-	//printf("sd: %f for %u\n", sd, attr);
 
+	printf("calcHSVCT_SD(..., fruitName = %s, attr = %u) = %f", fruitName, attr, sd);
 	return sd;
 }
 
@@ -114,15 +121,16 @@ double calcHSVC_SD(TrainingItem * p_head, char * fruitName, uint8_t attr) {
  * 2: Value
  * 3: Compactness
  */
-double calcHSVC_PDF(TrainingItem * p_head, char * fruitName, uint8_t attr, double val) {
-
+double calcHSVCT_PDF(TrainingItem * p_head, char * fruitName, uint8_t attr, double val) {
+	printf("calcHSVCT_PDF(..., fruitName = %s, attr = %u, val = %f)\n", fruitName, attr, val);
 	double pdf = 0.0;
-	double mean = calcHSVC_Mean(p_head, fruitName, attr);
-	double sd = calcHSVC_SD(p_head, fruitName, attr);;
-	double a = (1/(sd*sqrt(2*CV_PI)));
-	double b = exp( ((-1)*(pow((val-mean),2)) / (2*pow(sd,2))) );
-
-	pdf = a * b;
+	double mean = calcHSVCT_Mean(p_head, fruitName, attr);
+	double sd = calcHSVCT_SD(p_head, fruitName, attr);
+	if(sd>0) {
+		double a = (1/(sd*sqrt(2*CV_PI)));
+		double b = exp( ((-1)*(pow((val-mean),2)) / (2*pow(sd,2))) );
+		pdf = a * b;
+	}
 
 	return pdf;
 }
@@ -133,18 +141,20 @@ double calcHSVC_PDF(TrainingItem * p_head, char * fruitName, uint8_t attr, doubl
  *
  *	posterior(class) = prior(class)*p(h|class)*p(s|class)*p(v|class)*p(compactness|class)
  */
-double calcPosterior(TrainingItem *tDataHead, char *class, CvScalar sampleHSV, double sampleC) {
+double calcPosterior(TrainingItem *tDataHead, char *class, CvScalar sampleHSV, double sampleC, double texture) {
 
 	double post = 0.0;
-	double pH = calcHSVC_PDF(tDataHead, class, HUE, sampleHSV.val[HUE]);
-	double pS = calcHSVC_PDF(tDataHead, class, SATURATION, sampleHSV.val[SATURATION]);
-	double pV = calcHSVC_PDF(tDataHead, class, VALUE, sampleHSV.val[VALUE]);
-	double pC = calcHSVC_PDF(tDataHead, class, COMPACTNESS, sampleC);
-	/*printf("P(hue|%s) %f, P(sat|%s) %f, P(val|%s) %f, P(c|%s) %f\n", class, pH,
-																	 class, pS,
-																	 class, pV,
-																     class, pC); */
-	post = pH*pS*pV*pC;
+	double pH = calcHSVCT_PDF(tDataHead, class, HUE, sampleHSV.val[HUE]);
+	double pS = calcHSVCT_PDF(tDataHead, class, SATURATION, sampleHSV.val[SATURATION]);
+	double pV = calcHSVCT_PDF(tDataHead, class, VALUE, sampleHSV.val[VALUE]);
+	double pC = calcHSVCT_PDF(tDataHead, class, COMPACTNESS, sampleC);
+	double pT = calcHSVCT_PDF(tDataHead, class, TEXTURE, texture);
+	printf("P(hue|%s) %f, P(sat|%s) %f, P(val|%s) %f, P(c|%s) %f, P(t|%s) %f\n", class, pH,
+																	 	 	 	 class, pS,
+																				 class, pV,
+																		 	 	 class, pC,
+																				 class, pT);
+	post = pH*pS*pV*pC;	/*Add weighting to features here is desired */
 	printf("posterior(%s) = %0.80f\n", class, post);
 
 	return post;
@@ -156,13 +166,14 @@ double calcPosterior(TrainingItem *tDataHead, char *class, CvScalar sampleHSV, d
  * *classes[] - Array of class names for which to calculate the posteriors
  *  hsvSample - CvScalar containing the H, S and V values from the sample to be identified.
  *  cSample   - Measure of compactness from the sample to be identified.
+ *  texture - measure of texture
  */
-Posteriors *calcPosteriors(TrainingItem *tData, char *classes[], CvScalar hsvSample, double cSample) {
+Posteriors *calcPosteriors(TrainingItem *tData, char *classes[], CvScalar hsvSample, double cSample, double texture) {
 
 	Posteriors *post = NULL;
 	int class = 0;
 	for(class = 0; class <= sizeof(classes); class++) {
-		double pProb = calcPosterior(tData, classes[class], hsvSample, cSample);
+		double pProb = calcPosterior(tData, classes[class], hsvSample, cSample, texture);
 		post = addPosterior(post, classes[class], pProb);
 	}
 

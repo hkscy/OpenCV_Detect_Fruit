@@ -19,6 +19,7 @@
 #define S_COL		3
 #define V_COL		4
 #define C_COL		5
+#define T_COL		6
 
 /**
  * Given the path to the training data, which must be CSV separated and contain
@@ -67,7 +68,7 @@ TrainingItem *readTrainingData(char *fileName) {
 		uint8_t columnN = 0;
 		char * fName = malloc( LINE_BUFF );
 		char * class = malloc( LINE_BUFF );
-		double h = 0, s = 0, v = 0, c = 0;
+		double h = 0, s = 0, v = 0, c = 0, t = 0;
 		*p_line++ = '\0';
 	    // printf("parsing: %s\n", data); - debug, prints out one line of training data
 	    char *p_val = strtok(data, "\t");
@@ -85,13 +86,15 @@ TrainingItem *readTrainingData(char *fileName) {
 	    		v = strtod(p_val, NULL);
 	    	} else if (C_COL == columnN) { /*Compactness */
 	    		c = strtod(p_val, NULL);
+	    	} else if (T_COL == columnN) { /*Texture */
+	    		t = strtod(p_val, NULL);
 	    	} else {
 	    		printf("Unknown training data in file: %s\n", p_val);
 	    	}
 	        p_val = strtok(NULL, "\t");
 	        columnN++;
 	    }
-	    tData = addTItem(tData, class, h, s, v, c);	/*Add data to list */
+	    tData = addTItem(tData, class, h, s, v, c, t);	/*Add data to list */
 	    data = p_line;
 	    p_line = strchr(data, '\n');
 	    free(fName);

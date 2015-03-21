@@ -15,6 +15,7 @@
 #define SATURATION 	1
 #define	VALUE		2
 #define COMPACTNESS 3
+#define TEXTURE 	4
 
 /**
  * Defines one element of training data, and a pointer to the next.
@@ -25,6 +26,7 @@ typedef struct TrainingItem {
 	double  s; /* Saturation */
 	double  v; /* Value */
 	double  c; /* Compactness */
+	double 	t; /* Texture */
   struct TrainingItem *p_next;
 } TrainingItem;
 
@@ -41,8 +43,8 @@ typedef struct Posteriors {
  * Adds new item to list of training data, returns pointer to new list element
  * as head of list. (i.e. FILO buffer)
  */
-TrainingItem* addTItem(TrainingItem *p_head, char *fruitName, double h, double s, double v, double c) {
-  // printf("Adding item: %s\t%0.2f\t%0.2f\t%0.2f", fruitName, h, s , v);
+TrainingItem* addTItem(TrainingItem *p_head, char *fruitName, double h, double s, double v, double c, double t) {
+  printf("Adding item: %s\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\n", fruitName, h, s , v, c, t);
   TrainingItem *p_new_item = malloc(sizeof(TrainingItem));
   p_new_item->p_next = p_head;			/* Set pointer to previous head */
   p_new_item->fruitName = fruitName;    /* Set data pointers */
@@ -50,6 +52,7 @@ TrainingItem* addTItem(TrainingItem *p_head, char *fruitName, double h, double s
   p_new_item->s = s;
   p_new_item->v = v;
   p_new_item->c = c;
+  p_new_item->t = t;
 
   return p_new_item;
 }
@@ -74,12 +77,14 @@ void printTList(TrainingItem *p_head) {
 		if(p_current_item->fruitName && p_current_item->h &&
 										p_current_item->s &&
 										p_current_item->v &&
-										p_current_item->c) {
-			printf("%s\t%0.2f\t%0.2f\t%0.2f\t%0.2f\n", p_current_item->fruitName,
+										p_current_item->c &&
+										p_current_item->t) {
+			printf("%s\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\n", p_current_item->fruitName,
 											  		   p_current_item->h,
 													   p_current_item->s,
 													   p_current_item->v,
-													   p_current_item->c);
+													   p_current_item->c,
+													   p_current_item->t);
 		} else {
 			printf("No data.\n");
 		}
@@ -88,6 +93,9 @@ void printTList(TrainingItem *p_head) {
 	}
 }
 
+/**
+ * Print the elements in the list.
+ */
 void printPList(Posteriors *p_head) {
 	Posteriors *p_current_item = p_head;
 		while (p_current_item) {    /* Loop while the current pointer is not NULL. */
@@ -99,6 +107,9 @@ void printPList(Posteriors *p_head) {
 		}
 }
 
+/*
+ * Count the number of elements in the list. O(n)
+ */
 int getPListLen(Posteriors *p_head) {
 
 	int count = 0;
@@ -141,10 +152,10 @@ int freeTList(TrainingItem *p_head)	{
 TrainingItem* reverseTList(TrainingItem *p_head) {
   TrainingItem *p_new_head = NULL;
   while (p_head) {
-    TrainingItem *p_next = p_head->p_next;
-    p_head->p_next = p_new_head;
-    p_new_head = p_head;
-    p_head = p_next;
+	  TrainingItem *p_next = p_head->p_next;
+	  p_head->p_next = p_new_head;
+	  p_new_head = p_head;
+	  p_head = p_next;
   }
   return p_new_head;
 }

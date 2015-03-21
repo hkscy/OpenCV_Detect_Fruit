@@ -54,18 +54,19 @@ void testBayes(CvScalar hsvVal, double compactness) {
 	fruitNames[14] = "granny";    h[14] = 87.20; s[14] = 220.39; v[14] = 117.27; c[14] = 0.86;
 	fruitNames[15] = "granny";	  h[15] = 87.04; s[15] = 216.43; v[15] = 112.85; c[15] = 0.85;
 	fruitNames[16] = "granny";	  h[16] = 87.86; s[16] = 212.36; v[16] = 115.22;  c[16] = 0.88;
+	double texture = 1.0;
 
 	int i;
 	TrainingItem *p_head = NULL; 	/* 'Initialise' empty list */
 	for (i=0; i<numData; i++) {
 		/* Build list of training data */
-	    p_head = addTItem(p_head, fruitNames[i], h[i], s[i], v[i], c[i]);
+	    p_head = addTItem(p_head, fruitNames[i], h[i], s[i], v[i], c[i], 0.0);
 	}
 	printTList(p_head);
 
-	double pGranny = calcPosterior(p_head, "granny", hsvVal, compactness);
-	double pBanana = calcPosterior(p_head, "banana", hsvVal, compactness);
-	double pOrange = calcPosterior(p_head, "orange", hsvVal, compactness);
+	double pGranny = calcPosterior(p_head, "granny", hsvVal, compactness, texture);
+	double pBanana = calcPosterior(p_head, "banana", hsvVal, compactness, texture);
+	double pOrange = calcPosterior(p_head, "orange", hsvVal, compactness, texture);
 
 	Posteriors *post = NULL;
 	post = addPosterior(post, "granny", pGranny);
