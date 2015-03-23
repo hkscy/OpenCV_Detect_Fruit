@@ -14,12 +14,13 @@
 #define LINE_BUFF 512
 
 #define FILEN_COL	0
-#define CLASS_COL	1
-#define H_COL		2
-#define S_COL		3
-#define V_COL		4
-#define C_COL		5
-#define T_COL		6
+#define SCLASS_COL	1
+#define ACLASS_COL	2
+#define H_COL		3
+#define S_COL		4
+#define V_COL		5
+#define C_COL		6
+#define T_COL		7
 
 /**
  * Given the path to the training data, which must be CSV separated and contain
@@ -76,7 +77,9 @@ TrainingItem *readTrainingData(char *fileName) {
 	    {
 	    	if(FILEN_COL == columnN) { /*File Name */
 	    		strcpy(fName, p_val);
-	    	} else if (CLASS_COL == columnN) { /*Class */
+	    	} else if (SCLASS_COL == columnN) { /*Class */
+	    		//strcpy(class, p_val);
+	    	} else if (ACLASS_COL == columnN) { /*Class */
 	    		strcpy(class, p_val);
 	    	} else if (H_COL == columnN) { /*H */
 	    		h = strtod(p_val, NULL);

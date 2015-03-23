@@ -44,7 +44,7 @@ typedef struct Posteriors {
  * as head of list. (i.e. FILO buffer)
  */
 TrainingItem* addTItem(TrainingItem *p_head, char *fruitName, double h, double s, double v, double c, double t) {
-  printf("Adding item: %s\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\n", fruitName, h, s , v, c, t);
+  // printf("Adding item: %s\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\n", fruitName, h, s , v, c, t);
   TrainingItem *p_new_item = malloc(sizeof(TrainingItem));
   p_new_item->p_next = p_head;			/* Set pointer to previous head */
   p_new_item->fruitName = fruitName;    /* Set data pointers */
@@ -97,11 +97,11 @@ void printTList(TrainingItem *p_head) {
  * Print the elements in the list.
  */
 void printPList(Posteriors *p_head) {
+	printf("Printing list of posterior probabilities: \n");
 	Posteriors *p_current_item = p_head;
 		while (p_current_item) {    /* Loop while the current pointer is not NULL. */
-			if(p_current_item->class && p_current_item->posteriorP) {
+			if(p_current_item->class)
 				printf("%s\t%0.200f\n", p_current_item->class, p_current_item->posteriorP);
-			}
 			/* Advance the current pointer to the next item in the list */
 			p_current_item = p_current_item->p_next;
 		}
@@ -141,7 +141,7 @@ int freeTList(TrainingItem *p_head)	{
 	    items_freed++;
 	}
 	printf("Freed %d data runs in total\n", items_freed);
-	free(p_head); 					/* Free head */
+	//free(p_head); 					/* Free head */
 	return items_freed;
 }
 
@@ -161,16 +161,16 @@ TrainingItem* reverseTList(TrainingItem *p_head) {
 }
 
 /**
- * Iterate the list, return the name of the class which has the highest posterior probability.
- * O(n)
+ * Iterate the list, return the name of the class which has the highest posterior probability. O(n)
  */
 char * getMostProbableClass(Posteriors *p_head) {
 	double highestP = 0;
-	char * class;
+	char *class;
+	printf("\nIdentifying fruit... ");
 
 	Posteriors *p_current = p_head;
 	while(p_current) {
-		if(p_current->class && p_current->posteriorP) {
+		if(p_current->class) {
 			if(p_current->posteriorP > highestP) {
 				highestP = p_current->posteriorP;
 				class = p_current->class;
@@ -178,7 +178,12 @@ char * getMostProbableClass(Posteriors *p_head) {
 		}
 		p_current = p_current->p_next;
 	}
-	printf("\nFruit identified as: %s\n", class);
+	if(highestP > 0 && class) {
+		//printf("%s\n\n", class);
+	} else {
+		strcpy(class, "");
+	}
+
 	return class;
 }
 

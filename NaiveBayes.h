@@ -11,6 +11,18 @@
 #define NATIVEBAYES_H_
 
 #define PI 3.14159
+#define NCLASSES 7
+
+/*
+ * Used to define ranges of HSV values used for thresholding.
+ * H3 and H4 permit identifying red colours which wrap round the Hue axis.
+ */
+typedef struct _HSV_RANGE {
+	char * class;
+	uint16_t h1, h2, h3, h4;
+	uint16_t s1, s2;
+	uint16_t v1, v2;
+} HSV_Range;
 
 /**
  * Given the class of fruit, iterate the list of training data and
@@ -52,7 +64,7 @@ double calcHSVCT_Mean(TrainingItem * p_head, char *fruitName, uint8_t attr) {
 	if(divisor > 0.0) {
 		mean = mean/divisor;
 	}
-	printf("calcHSVCT_Mean(..., fruitName = %s, attr = %u) = %f\n", fruitName, attr, mean);
+	//printf("calcHSVCT_Mean(..., fruitName = %s, attr = %u) = %f\n", fruitName, attr, mean);
 	return mean;
 }
 
@@ -105,7 +117,7 @@ double calcHSVCT_SD(TrainingItem * p_head, char * fruitName, uint8_t attr) {
 
 	sd = sqrt( sumOfSqDiff/divisor );
 
-	printf("calcHSVCT_SD(..., fruitName = %s, attr = %u) = %f", fruitName, attr, sd);
+	//printf("calcHSVCT_SD(..., fruitName = %s, attr = %u) = %f\n", fruitName, attr, sd);
 	return sd;
 }
 
@@ -122,7 +134,7 @@ double calcHSVCT_SD(TrainingItem * p_head, char * fruitName, uint8_t attr) {
  * 3: Compactness
  */
 double calcHSVCT_PDF(TrainingItem * p_head, char * fruitName, uint8_t attr, double val) {
-	printf("calcHSVCT_PDF(..., fruitName = %s, attr = %u, val = %f)\n", fruitName, attr, val);
+	//printf("calcHSVCT_PDF(..., fruitName = %s, attr = %u, val = %f)\n", fruitName, attr, val);
 	double pdf = 0.0;
 	double mean = calcHSVCT_Mean(p_head, fruitName, attr);
 	double sd = calcHSVCT_SD(p_head, fruitName, attr);
@@ -168,15 +180,14 @@ double calcPosterior(TrainingItem *tDataHead, char *class, CvScalar sampleHSV, d
  *  cSample   - Measure of compactness from the sample to be identified.
  *  texture - measure of texture
  */
-Posteriors *calcPosteriors(TrainingItem *tData, char *classes[], CvScalar hsvSample, double cSample, double texture) {
+Posteriors *calcPosteriors(TrainingItem *tData, HSV_Range classes[], CvScalar hsvSample, double cSample, double texture) {
 
 	Posteriors *post = NULL;
 	int class = 0;
-	for(class = 0; class <= sizeof(classes); class++) {
-		double pProb = calcPosterior(tData, classes[class], hsvSample, cSample, texture);
-		post = addPosterior(post, classes[class], pProb);
+	for(class = 0; class < NCLASSES; class++) {
+		double pProb = calcPosterior(tData, classes[class].class, hsvSample, cSample, texture);
+		post = addPosterior(post, classes[class].class, pProb);
 	}
-
 	return post;
 }
 
