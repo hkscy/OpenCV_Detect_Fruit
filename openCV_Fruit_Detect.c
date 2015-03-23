@@ -103,7 +103,7 @@ int main(int argc, char* argv[]) {
 
 		while(selectedClass[0] == '\0') {
 			gets(userInput);
-			//strcpy(userInput, "6"); /*Debug */
+			//strcpy(userInput, "0"); /*Debug */
 			for(count = 0; count < NCLASSES; count++) {
 				 if(strcmp(classes[count].class, userInput) == 0) {
 					 strcpy(selectedClass, classes[count].class);
@@ -243,6 +243,7 @@ int main(int argc, char* argv[]) {
 
 			//Calculate lacunarity of region
 			double lacunarity = calcLacunarity(textureMeasureSquare);
+			texture = lacunarity;
 			printf("Lacunarity: %.4f \n", lacunarity);
 			cvShowAndPause(contouredMask);
 		}
@@ -378,7 +379,7 @@ int main(int argc, char* argv[]) {
 void cvShowAndPause(CvArr *image) {
 	cvNamedWindow(WINDOW_NAME, 1);
 	cvShowImage(WINDOW_NAME, image);
-	cvWaitKey(0);
+	cvWaitKey(100);
 }
 
 /*
@@ -398,9 +399,9 @@ int train(char *imageFileName, CvScalar hsvAvg, double compactness, double textu
 		return EXIT_FAILURE;
 	}
 
-	int strLen = snprintf(NULL, 0, "%s\t%s\t%s\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\n",
+	int strLen = snprintf(NULL, 0, "%s\t%s\t%s\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.4f\n",
 								   imageFileName,			// File name image loaded from (*)
-								   selectedClass,					// User input fruit name
+								   selectedClass,			// User input fruit name
 								   actualClass,
 								   hsvAvg.val[HUE], 		// H (does this need to be scaled back)
 								   hsvAvg.val[SATURATION], 	// S
@@ -409,7 +410,7 @@ int train(char *imageFileName, CvScalar hsvAvg, double compactness, double textu
 								   texture);
 
 	writeBuff = malloc( strLen + 1 );
-	snprintf(writeBuff, BUFF, "%s\t%s\t%s\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\n",
+	snprintf(writeBuff, BUFF, "%s\t%s\t%s\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.4f\n",
 			   	   	   	   	   imageFileName,		// File name image loaded from (*)
 							   selectedClass,		// User input fruit name
 							   actualClass,

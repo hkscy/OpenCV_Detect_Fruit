@@ -166,7 +166,7 @@ double calcPosterior(TrainingItem *tDataHead, char *class, CvScalar sampleHSV, d
 																				 class, pV,
 																		 	 	 class, pC,
 																				 class, pT);
-	post = pH*pS*pV*pC;	/*Add weighting to features here is desired */
+	post = pH*pS*pV*pC;	/*Add weighting to features here if desired */
 	printf("posterior(%s) = %0.80f\n", class, post);
 
 	return post;
